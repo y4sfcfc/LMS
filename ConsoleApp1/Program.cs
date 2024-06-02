@@ -1,26 +1,27 @@
-﻿using System;
+﻿using ConsoleApp.Repository;
+using System;
 using System.Text.RegularExpressions;
 
 namespace ConsoleApp1
 {
     internal class Program
     {
-        static List<Team> teams = new List<Team>();
-        static List<Player> players = new List<Player>();
-        static List<Match> matches = new List<Match>();
+        public static IRepository<Player> PlayerRepository = new Repository<Player>();
+        public static IRepository<Team> TeamRepository = new Repository<Team>();
+        public static IRepository<Match> MatchRepository = new Repository<Match>();
         static void Main(string[] args)
         {
-            Console.WriteLine("Futbol Lig Yönetim Sistemine Hoş Geldiniz!");
+            Console.WriteLine("SERIA A");
 
-            InitializeData(); 
+            
 
             while (true)
             {
                 Console.WriteLine("Menyu:");
                 Console.WriteLine("1. Bitmiş oyuna dair neticelerin daxil edilmesi");
-                Console.WriteLine("2. Bir komandanın cari veziyyetinin və futbolcularının siyahilanmasi");
+                Console.WriteLine("2. Bir komandanın cari veziyyetinin ve futbolcularının siyahilanmasi");
                 Console.WriteLine("3. Puan cedvelinin siralanmasi");
-                Console.WriteLine("4. En cox qol vuran və ən cox qol yiyen komandalarin siralanmasi");
+                Console.WriteLine("4. En cox qol vuran ve en cox qol yiyen komandalarin siralanmasi");
                 Console.WriteLine("5. Liqde en cox qol atan futbolcunun siralanmasi");
                 Console.WriteLine("6. Cixis");
                 Console.Write("Seçiminiz: ");
@@ -61,15 +62,17 @@ namespace ConsoleApp1
                 Console.Write("Komanda adi: ");
                 string teamName = Console.ReadLine();
 
+                Console.Write("Komanda Id: ");
+                int teamId = int.Parse(Console.ReadLine());
+
+
                 if (teamName.ToLower() == "cixis")
                     break;
-
-                Console.Write("Komanda kodu: ");
-                int teamCode = int.Parse(Console.ReadLine());
-
-                teams.Add(new Team { Code = teamCode, Name = teamName });
-
+                               
                 
+               Team Team =  TeamRepository.Add(new Team { Name = teamName });
+
+
                 while (true)
                 {
                     Console.WriteLine("Oyuncu melumatlarini daxil edin  (sonlandirmaq ucun 'cixis' yazın):");
@@ -83,9 +86,9 @@ namespace ConsoleApp1
                     Console.Write("Forma nomresi: ");
                     int jerseyNumber = int.Parse(Console.ReadLine());
 
-               
 
-                    players.Add(new Player { JerseyNumber = jerseyNumber, Name = playerName, TeamCode = teamCode });
+
+                    PlayerRepository.Add(new Player { JerseyNumber = jerseyNumber, Name = playerName, TeamId = Team.Id });
                 }
             }
         }
@@ -97,11 +100,11 @@ namespace ConsoleApp1
 
             while (true)
             {
-                Console.Write("Ev sahibi komanda kodu: ");
+                Console.Write("Ev sahibi Id: ");
                 int homeTeamCode = int.Parse(Console.ReadLine());
 
-                Console.Write("Qonaq komanda kodu: ");
-                int awayTeamCode = int.Parse(Console.ReadLine());
+                Console.Write("Qonaq komanda Id: ");
+                int awayTeamCode =int.Parse(Console.ReadLine());
 
                 Console.Write("Ev sahibi komandanin qol sayi: ");
                 int homeTeamGoals = int.Parse(Console.ReadLine());
@@ -109,11 +112,11 @@ namespace ConsoleApp1
                 Console.Write("Qonaq komandanin qol sayi: ");
                 int awayTeamGoals = int.Parse(Console.ReadLine());
 
-                matches.Add(new Match
+                MatchRepository.Add(new Match
                 {
                     Week = week,
-                    HomeTeamCode = homeTeamCode,
-                    AwayTeamCode = awayTeamCode,
+                    HostTeamId = homeTeamCode,
+                    AwayTeamId = awayTeamCode,
                     HomeTeamGoals = homeTeamGoals,
                     AwayTeamGoals = awayTeamGoals
                 });
@@ -128,8 +131,8 @@ namespace ConsoleApp1
 
         static void UpdateTeamStats(int homeTeamCode, int awayTeamCode, int homeTeamGoals, int awayTeamGoals)
         {
-            var homeTeam = teams.First(t => t.Code == homeTeamCode);
-            var awayTeam = teams.First(t => t.Code == awayTeamCode);
+            var homeTeam = TeamRepository.GetById(homeTeamCode);
+            var awayTeam = TeamRepository.GetById(awayTeamCode);
 
             homeTeam.GoalsFor += homeTeamGoals;
             homeTeam.GoalsAgainst += awayTeamGoals;
@@ -160,32 +163,34 @@ namespace ConsoleApp1
                 Console.Write("Vurulan qol sayi: ");
                 int goals = int.Parse(Console.ReadLine());
 
-                var player = players.First(p => p.JerseyNumber == jerseyNumber);
+                var player = PlayerRepository.GetById(jerseyNumber);
                 player.Goals += goals;
 
                 Console.Write("Basqa qol vuran oyuncu varmı? (b/x): ");
                 if (Console.ReadLine().ToLower() != "b")
                     break;
             }
+            TeamRepository.Update(homeTeam);
+            TeamRepository.Update(awayTeam);
         }
 
         static void DisplayTeamInfo()
         {
-            Console.Write("Komandanin adini daxil edin: ");
-            string teamName = Console.ReadLine();
+            Console.Write("Komandanin Id-i daxil edin: ");
+            int teamId = int.Parse(Console.ReadLine());
 
-            var team = teams.FirstOrDefault(t => t.Name == teamName);
+            var team = TeamRepository.GetById(teamId);
             if (team == null)
             {
-                Console.WriteLine("KOmanda tapilmadi.");
+                Console.WriteLine("Komanda tapilmadi.");
                 return;
             }
 
             Console.WriteLine($"Komanda: {team.Name}");
-            Console.WriteLine($"Kod: {team.Code}, Qalibiyyet: {team.Wins}, Beraberlik: {team.Draws}, Meglubiyyet: {team.Losses}");
+            Console.WriteLine($"Kod: {team.Id}, Qalibiyyet: {team.Wins}, Beraberlik: {team.Draws}, Meglubiyyet: {team.Losses}");
             Console.WriteLine($"Vurulan qol: {team.GoalsFor}, BUraxilan qol: {team.GoalsAgainst}");
 
-            var teamPlayers = players.Where(p => p.TeamCode == team.Code).OrderBy(p => p.JerseyNumber);
+            var teamPlayers = PlayerRepository.GetAll().Where(p=>p.TeamId==teamId).OrderBy(p=>p.JerseyNumber);
             foreach (var player in teamPlayers)
             {
                 Console.WriteLine($"Forma No: {player.JerseyNumber}, Ad Soyad: {player.Name}, Vurdugu qol: {player.Goals}");
@@ -194,18 +199,24 @@ namespace ConsoleApp1
 
         static void DisplayLeagueTable()
         {
-            var sortedTeams = teams.OrderByDescending(t => t.Points).ThenByDescending(t => t.GoalDifference).ThenByDescending(t => t.GoalsFor);
+            var sortedTeams = TeamRepository.GetAll().OrderByDescending(t => t.Points).ThenByDescending(t => t.GoalsFor - t.GoalsAgainst).ThenByDescending(t => t.GoalsFor);
             Console.WriteLine("\nTurnir cedveli:");
+
+            Console.WriteLine("Komanda    Xal   TF   VQ   BQ  ");
+            Console.WriteLine("-----------------------------------");
+
             foreach (var team in sortedTeams)
             {
-                Console.WriteLine($"{team.Name} - Xal: {team.Points}, Top ferqi: {team.GoalDifference}, Vurulan Gol: {team.GoalsFor}, Buraxilan Gol: {team.GoalsAgainst}");
+                
+               
+                Console.WriteLine($"{team.Name}   {team.Points}   {team.GoalsFor - team.GoalsAgainst}   {team.GoalsFor}   {team.GoalsAgainst}");
             }
         }
 
         static void DisplayTopScoringAndConcedingTeams()
         {
-            var topScoringTeams = teams.OrderByDescending(t => t.GoalsFor).Take(1);
-            var topConcedingTeams = teams.OrderByDescending(t => t.GoalsAgainst).Take(1);
+            var topScoringTeams = TeamRepository.GetAll().OrderByDescending(t => t.GoalsFor).Take(1);
+            var topConcedingTeams = TeamRepository.GetAll().OrderByDescending(t => t.GoalsAgainst).Take(1);
 
             Console.WriteLine("\nEn cox qol vuran komanda:");
             foreach (var team in topScoringTeams)
@@ -222,14 +233,14 @@ namespace ConsoleApp1
 
         static void DisplayTopScoringPlayers()
         {
-            
-            var topScoringPlayers = players.OrderByDescending(p => p.Goals).Take(1);
+
+            var topScoringPlayers = PlayerRepository.GetAll().OrderByDescending(p => p.Goals).Take(1);
             Console.WriteLine("\nEn cox qol vuran oyuncu:");
             foreach (var player in topScoringPlayers)
             {
-                Console.WriteLine("   Ad Soyad       Forma No        Qol sayi");
-                Console.WriteLine("-----------     -----------     ------------");
-                Console.WriteLine($"     {player.Name}             {player.JerseyNumber}           {player.Goals}");
+                Console.WriteLine("   Komanda      Ad Soyad       Forma No        Qol sayi");
+                Console.WriteLine("-----------     -----------     ------------    __________");
+                Console.WriteLine($"   {player.Team.Name}  {player.Name}             {player.JerseyNumber}           {player.Goals}");
             }
         }
 
